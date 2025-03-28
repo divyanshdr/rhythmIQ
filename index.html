@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RhythmIQ - AI ECG Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Light Mode Colors */
+            --primary: #1A4B8C;
+            --secondary: #00D1D1;
+            --accent: #FF3E4D;
+            --bg: #F5F7FA;
+            --card: #FFFFFF;
+            --text: #2C3E50;
+            --text-light: #7F8C8D;
+            --success: #27AE60;
+            --warning: #F39C12;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode Colors */
+            --primary: #00D1D1;
+            --secondary: #00F5FF;
+            --accent: #FF3E4D;
+            --bg: #0A1A2F;
+            --card: #1A2A4F;
+            --text: #ECF0F1;
+            --text-light: #BDC3C7;
+            --success: #2ECC71;
+            --warning: #F1C40F;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: all 0.3s ease;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(0, 209, 209, 0.2);
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo svg {
+            width: 40px;
+            height: 40px;
+            fill: var(--secondary);
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Theme Toggle */
+        .theme-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--card);
+            transition: .4s;
+            border-radius: 34px;
+            border: 2px solid var(--secondary);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 2px;
+            background-color: var(--secondary);
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--card);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: var(--primary);
+        }
+
+        /* Main Content */
+        .upload-section {
+            background-color: var(--card);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .upload-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* File Upload */
+        .file-upload {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .file-input-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .file-label {
+            flex: 1;
+            padding: 15px;
+            background-color: var(--bg);
+            border: 2px dashed var(--secondary);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-label:hover {
+            background-color: rgba(0, 209, 209, 0.1);
+            border-color: var(--primary);
+        }
+
+        .file-name {
+            color: var(--text-light);
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .file-label span {
+            background-color: var(--secondary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .file-label:hover span {
+            background-color: var(--primary);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Buttons */
+        .btn {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px rgba(0, 209, 209, 0.2);
+        }
+
+        .btn:hover {
+            background-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 209, 209, 0.3);
+        }
+
+        .btn:disabled {
+            background-color: var(--text-light);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Loading System */
+        #loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 26, 47, 0.9);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 30px;
+            background-color: var(--card);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Heartbeat Animation */
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+            50% { transform: scale(1); }
+            75% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .heartbeat {
+            animation: heartbeat 1.5s infinite;
+            margin-bottom: 20px;
+        }
+
+        .heartbeat svg {
+            width: 80px;
+            height: 80px;
+            fill: var(--accent);
+        }
+
+        /* ECG Loading Bar */
+        .ecg-loader {
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--secondary), transparent);
+            background-size: 200% 100%;
+            animation: ecg-loading 2s linear infinite;
+            position: relative;
+            overflow: hidden;
+            margin: 20px 0;
+            border-radius: 2px;
+        }
+
+        @keyframes ecg-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .ecg-loader::after {
+            content: "";
+            position: absolute;
+            top: -5px;
+            left: 0;
+            width: 20px;
+            height: 14px;
+            background: var(--accent);
+            clip-path: path('M10 3L5 8H7L10 5L13 8H15Z');
+            animation: ecg-peak 2s linear infinite;
+        }
+
+        @keyframes ecg-peak {
+            0% { left: -20px; }
+            100% { left: 100%; }
+        }
+
+        .loading-text {
+            color: var(--secondary);
+            font-size: 18px;
+            font-weight: 500;
+            margin-top: 15px;
+        }
+
+        .loading-subtext {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* Results Section */
+        .results-section {
+            display: none;
+            background-color: var(--card);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .ecg-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .ecg-lead {
+            background-color: var(--bg);
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+            height: 200px;
+            border: 1px solid rgba(0, 209, 209, 0.3);
+        }
+
+        .lead-title {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            font-weight: 600;
+            color: var(--secondary);
+            background-color: var(--card);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .ecg-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ecg-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Diagnosis Results */
+        .diagnosis-card {
+            background: linear-gradient(135deg, rgba(0, 209, 209, 0.1), rgba(26, 75, 140, 0.1));
+            border-left: 4px solid var(--secondary);
+            padding: 20px;
+            border-radius: 0 10px 10px 0;
+            margin-top: 30px;
+        }
+
+        .diagnosis-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .diagnosis-header svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--secondary);
+        }
+
+        .diagnosis-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 209, 209, 0.2);
+        }
+
+        .diagnosis-condition {
+            font-weight: 500;
+        }
+
+        .diagnosis-confidence {
+            font-weight: 600;
+            color: var(--secondary);
+        }
+
+        .confidence-meter {
+            height: 6px;
+            background-color: rgba(0, 209, 209, 0.1);
+            border-radius: 3px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .confidence-level {
+            height: 100%;
+            background: linear-gradient(to right, var(--secondary), var(--primary));
+            width: 0%;
+            transition: width 1s ease;
+        }
+
+        /* Patient Info */
+        .patient-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            background-color: var(--bg);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--secondary);
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .ecg-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .file-input-group {
+                flex-direction: column;
+            }
+            
+            .file-label span {
+                width: 100%;
+                text-align: center;
+                margin-top: 10px;
+            }
+            
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .theme-switch {
+                align-self: flex-end;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Theme Switch -->
+        <header>
+            <div class="logo">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12,21.35L10.55,20.03C5.4,15.36 2,12.28 2,8.5C2,5.42 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.09C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.42 22,8.5C22,12.28 18.6,15.36 13.45,20.04L12,21.35Z"/>
+                </svg>
+                <h1>RhythmIQ</h1>
+            </div>
+            <div class="theme-switch">
+                <label class="switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                </label>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 18C15.3137 18 18 15.3137 18 12C18 8.68629 15.3137 6 12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18Z" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 2V4" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 20V22" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4.92993 4.92999L6.33993 6.33999" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M17.6599 17.66L19.0699 19.07" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12H4" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20 12H22" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M6.33993 17.66L4.92993 19.07" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M19.0699 4.92999L17.6599 6.33999" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </header>
+
+        <!-- Upload Section -->
+        <section class="upload-section fade-in">
+            <h2 class="section-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                </svg>
+                Upload ECG Records
+            </h2>
+            <p style="color: var(--text-light); margin-bottom: 20px;">Please upload both the signal (.dat) and header (.hea) files from your ECG recording</p>
+            
+            <div class="file-upload">
+                <div class="file-input-group">
+                    <label class="file-label" for="datFile">
+                        <span class="file-name" id="datFileName">No .dat file selected</span>
+                        <span>Choose File</span>
+                    </label>
+                    <input type="file" id="datFile" accept=".dat" required>
+                </div>
+                
+                <div class="file-input-group">
+                    <label class="file-label" for="heaFile">
+                        <span class="file-name" id="heaFileName">No .hea file selected</span>
+                        <span>Choose File</span>
+                    </label>
+                    <input type="file" id="heaFile" accept=".hea" required>
+                </div>
+            </div>
+            
+            <div id="patientInfoContainer" class="patient-info"></div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+                <button id="processButton" class="btn" onclick="processECGSignal()">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M10,15L15.19,12L10,9V15M21.56,7.17C21.69,7.64 21.78,8.27 21.84,9.07C21.91,9.87 21.94,10.56 21.94,11.16L22,12C22,14.19 21.84,15.8 21.56,16.83C21.31,17.73 20.73,18.31 19.83,18.56C19.36,18.69 18.5,18.78 17.18,18.84C15.88,18.91 14.69,18.94 13.59,18.94L12,19C7.81,19 5.2,18.84 4.17,18.56C3.27,18.31 2.69,17.73 2.44,16.83C2.31,16.36 2.22,15.73 2.16,14.93C2.09,14.13 2.06,13.44 2.06,12.84L2,12C2,9.81 2.16,8.2 2.44,7.17C2.69,6.27 3.27,5.69 4.17,5.44C4.64,5.31 5.5,5.22 6.82,5.16C8.12,5.09 9.31,5.06 10.41,5.06L12,5C16.19,5 18.8,5.16 19.83,5.44C20.73,5.69 21.31,6.27 21.56,7.17Z"/>
+                    </svg>
+                    Analyze ECG
+                </button>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section fade-in" style="display: none;">
+            <h2 class="section-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
+                </svg>
+                ECG Analysis Results
+            </h2>
+            
+            <div class="ecg-grid" id="ecgContainer"></div>
+            
+            <div class="diagnosis-card">
+                <div class="diagnosis-header">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16"/>
+                    </svg>
+                    <h3>AI Diagnosis Report</h3>
+                </div>
+                <div id="diagnosisResults"></div>
+            </div>
+        </section>
+
+        <!-- Loading System -->
+        <div id="loading" style="display: none;">
+            <div class="loading-content">
+                <div class="heartbeat">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12,21.35L10.55,20.03C5.4,15.36 2,12.28 2,8.5C2,5.42 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.09C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.42 22,8.5C22,12.28 18.6,15.36 13.45,20.04L12,21.35Z"/>
+                    </svg>
+                </div>
+                <div class="ecg-loader"></div>
+                <p class="loading-text">Analyzing Heart Rhythm</p>
+                <p class="loading-subtext">Processing your ECG data with RhythmIQ AI</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let ecgSignal = null;
+        let patientMetadata = {};
+        let samplingRate = 500;
+        let adcGain = [];
+        let leadNames = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'];
+        let model = null;
+        let charts = [];
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Theme Toggle Functionality
+            const themeToggle = document.getElementById('themeToggle');
+            themeToggle.addEventListener('change', function() {
+                if(this.checked) {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('theme', 'light');
+                }
+                
+                // Update charts when theme changes
+                updateChartThemes();
+            });
+
+            // Check for saved theme preference
+            const currentTheme = localStorage.getItem('theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                themeToggle.checked = true;
+            }
+
+            // File input display
+            document.getElementById('datFile').addEventListener('change', function(e) {
+                const fileName = e.target.files[0] ? e.target.files[0].name : 'No .dat file selected';
+                document.getElementById('datFileName').textContent = fileName;
+            });
+            
+            document.getElementById('heaFile').addEventListener('change', function(e) {
+                const fileName = e.target.files[0] ? e.target.files[0].name : 'No .hea file selected';
+                document.getElementById('heaFileName').textContent = fileName;
+            });
+            
+            // Load TensorFlow.js model (placeholder)
+            loadModel();
+        });
+
+        // Main processing function
+        async function processECGSignal() {
+            const datFile = document.getElementById('datFile').files[0];
+            const heaFile = document.getElementById('heaFile').files[0];
+            const errorElement = document.getElementById('errorMessage');
+            const processButton = document.getElementById('processButton');
+            
+            // Validate inputs
+            if (!datFile || !heaFile) {
+                showError('Please upload both .dat and .hea files');
+                return;
+            }
+            
+            // Check if files match (same base name)
+            const datBaseName = datFile.name.replace('.dat', '');
+            const heaBaseName = heaFile.name.replace('.hea', '');
+            
+            if (datBaseName !== heaBaseName) {
+                showError('File names do not match. Please select corresponding .dat and .hea files.');
+                return;
+            }
+            
+            // Show loading state
+            document.getElementById('loading').style.display = 'flex';
+            processButton.disabled = true;
+            
+            try {
+                // Load and parse files
+                const [heaContent, datBuffer] = await Promise.all([
+                    readFileAsText(heaFile),
+                    readFileAsArrayBuffer(datFile)
+                ]);
+                
+                // Parse header file
+                patientMetadata = parseHeaderFile(heaContent);
+                displayPatientInfo(patientMetadata);
+                
+                // Process signal data
+                const buffer = new Int16Array(datBuffer);
+                ecgSignal = extractSignalLeads(buffer);
+                
+                if (ecgSignal.length === 0) {
+                    throw new Error("Invalid ECG signal data");
+                }
+                
+                // Simulate processing delay
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Visualize ECG
+                visualizeAllLeads();
+                
+                // Show results
+                document.getElementById('resultsSection').style.display = 'block';
+                simulateModelPrediction();
+                
+                // Scroll to results
+                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                showError(`Error processing ECG: ${error.message}`);
+                console.error(error);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                processButton.disabled = false;
+            }
+        }
+
+        // File reading helpers
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+        
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Header file parsing
+        function parseHeaderFile(heaContent) {
+            const lines = heaContent.split('\n').filter(line => line.trim() !== '');
+            const metadata = {};
+            adcGain = [];
+            
+            // First line contains basic info
+            const firstLine = lines[0].split(/\s+/);
+            metadata.recordName = firstLine[0];
+            metadata.numLeads = parseInt(firstLine[1]);
+            samplingRate = parseInt(firstLine[2]) || 500;
+            metadata.numSamples = parseInt(firstLine[3]);
+            
+            // Subsequent lines contain lead info
+            for (let i = 1; i <= metadata.numLeads; i++) {
+                if (lines[i]) {
+                    const leadInfo = lines[i].split(/\s+/);
+                    adcGain.push(parseFloat(leadInfo[2]) || 1000);
+                }
+            }
+            
+            // Parse comments for patient info
+            const comments = lines.slice(metadata.numLeads + 1);
+            comments.forEach(line => {
+                if (line.includes('Age:')) {
+                    metadata.age = line.split('Age:')[1].split(' ')[0].trim();
+                }
+                if (line.includes('Sex:')) {
+                    metadata.sex = line.split('Sex:')[1].split(' ')[0].trim();
+                }
+                if (line.includes('Diagnosis:')) {
+                    metadata.diagnosis = line.split('Diagnosis:')[1].trim();
+                }
+            });
+            
+            return metadata;
+        }
+
+        // ECG signal extraction
+        function extractSignalLeads(buffer) {
+            const numLeads = 12;
+            const samplesPerLead = buffer.length / numLeads;
+            const leads = Array.from({ length: numLeads }, () => []);
+            
+            for (let i = 0; i < samplesPerLead; i++) {
+                for (let j = 0; j < numLeads; j++) {
+                    const value = buffer[i * numLeads + j] / (adcGain[j] || 1000);
+                    leads[j].push(value);
+                }
+            }
+            
+            return leads;
+        }
+
+        // Display patient information
+        function displayPatientInfo(metadata) {
+            const container = document.getElementById('patientInfoContainer');
+            
+            let html = `
+                <div class="info-item">
+                    <div class="info-label">Record ID</div>
+                    <div class="info-value">${metadata.recordName || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Age</div>
+                    <div class="info-value">${metadata.age || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Sex</div>
+                    <div class="info-value">${metadata.sex || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Leads</div>
+                    <div class="info-value">${metadata.numLeads || 12}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Samples</div>
+                    <div class="info-value">${metadata.numSamples || 'N/A'}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Sampling Rate</div>
+                    <div class="info-value">${samplingRate} Hz</div>
+                </div>
+            `;
+            
+            if (metadata.diagnosis) {
+                html += `
+                    <div class="info-item" style="grid-column: span 2;">
+                        <div class="info-label">Diagnosis</div>
+                        <div class="info-value">${metadata.diagnosis}</div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Visualize all ECG leads
+        function visualizeAllLeads() {
+            const container = document.getElementById('ecgContainer');
+            container.innerHTML = '';
+            
+            // Clear previous charts
+            charts.forEach(chart => chart.destroy());
+            charts = [];
+            
+            ecgSignal.forEach((lead, index) => {
+                // Process lead
+                const processedLead = processECGLead(lead);
+                
+                // Create canvas element
+                const div = document.createElement('div');
+                div.className = 'ecg-lead fade-in';
+                div.style.animationDelay = `${index * 0.1}s`;
+                div.innerHTML = `
+                    <div class="lead-title">${leadNames[index]}</div>
+                    <div class="ecg-canvas-container">
+                        <canvas id="leadCanvas${index}" class="ecg-canvas"></canvas>
+                    </div>
+                `;
+                container.appendChild(div);
+                
+                // Render ECG
+                renderECG(processedLead, `leadCanvas${index}`);
+            });
+        }
+
+        // Process ECG lead with filtering
+        function processECGLead(signal) {
+            // 1. Remove baseline wander
+            const baselineRemoved = highPassFilter(signal, samplingRate, 0.5);
+            
+            // 2. Apply bandpass filter
+            const bandpassFiltered = bandpassFilter(baselineRemoved, samplingRate, 0.5, 40);
+            
+            // 3. Smooth the signal
+            const smoothed = movingAverageFilter(bandpassFiltered, 5);
+            
+            return smoothed;
+        }
+
+        // Filter implementations
+        function highPassFilter(signal, sampleRate, cutoffFreq) {
+            const RC = 1.0 / (2 * Math.PI * cutoffFreq);
+            const dt = 1.0 / sampleRate;
+            const alpha = RC / (RC + dt);
+            
+            const filtered = new Array(signal.length);
+            filtered[0] = signal[0];
+            
+            for (let i = 1; i < signal.length; i++) {
+                filtered[i] = alpha * (filtered[i-1] + signal[i] - signal[i-1]);
+            }
+            
+            return filtered;
+        }
+        
+        function bandpassFilter(signal, sampleRate, lowCutoff, highCutoff) {
+            // First apply high-pass
+            const highPassed = highPassFilter(signal, sampleRate, lowCutoff);
+            
+            // Then apply low-pass
+            const lowPassed = movingAverageFilter(highPassed, Math.floor(sampleRate / highCutoff));
+            
+            return lowPassed;
+        }
+        
+        function movingAverageFilter(signal, windowSize) {
+            const halfWindow = Math.floor(windowSize / 2);
+            const filtered = new Array(signal.length);
+            
+            for (let i = 0; i < signal.length; i++) {
+                const start = Math.max(0, i - halfWindow);
+                const end = Math.min(signal.length, i + halfWindow + 1);
+                let sum = 0;
+                let count = 0;
+                
+                for (let j = start; j < end; j++) {
+                    sum += signal[j];
+                    count++;
+                }
+                
+                filtered[i] = sum / count;
+            }
+            
+            return filtered;
+        }
+
+        // Render ECG using Chart.js
+        function renderECG(signal, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate display parameters
+            const displayDuration = 10; // Show 10 seconds of data
+            const displaySamples = Math.min(displayDuration * samplingRate, signal.length);
+            const startSample = 0;
+            
+            // Prepare data for display
+            const displayData = signal.slice(startSample, startSample + displaySamples);
+            const timeAxis = Array.from({length: displayData.length}, 
+                (_, i) => (i + startSample) / samplingRate);
+            
+            // Calculate y-axis range
+            const minValue = Math.min(...displayData);
+            const maxValue = Math.max(...displayData);
+            const range = maxValue - minValue;
+            const padding = range * 0.2;
+            
+            // Create chart
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeAxis,
+                    datasets: [{
+                        data: displayData,
+                        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--secondary'),
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0,
+                        borderCapStyle: 'round',
+                        borderJoinStyle: 'round'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuad'
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time (s)',
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-light')
+                            },
+                            ticks: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-light'),
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 10
+                            },
+                            grid: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-light'),
+                                borderColor: 'transparent',
+                                borderDash: [3, 3],
+                                drawBorder: false
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Amplitude (mV)',
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-light')
+                            },
+                            min: minValue - padding,
+                            max: maxValue + padding,
+                            ticks: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-light'),
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                }
+                            },
+                            grid: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-light'),
+                                borderColor: 'transparent',
+                                borderDash: [3, 3],
+                                drawBorder: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${leadNames[canvasId.replace('leadCanvas', '')]}: ${context.parsed.y.toFixed(3)} mV`;
+                                }
+                            }
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'xy'
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'xy'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            charts.push(chart);
+        }
+
+        // Update chart themes when theme changes
+        function updateChartThemes() {
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-light');
+            const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary');
+            
+            charts.forEach(chart => {
+                // Update dataset color
+                chart.data.datasets[0].borderColor = secondaryColor;
+                
+                // Update scale options
+                chart.options.scales.x.ticks.color = textColor;
+                chart.options.scales.x.title.color = textColor;
+                chart.options.scales.x.grid.color = textColor;
+                
+                chart.options.scales.y.ticks.color = textColor;
+                chart.options.scales.y.title.color = textColor;
+                chart.options.scales.y.grid.color = textColor;
+                
+                chart.update();
+            });
+        }
+
+        // Simulate model prediction
+        function simulateModelPrediction() {
+            const resultsContainer = document.getElementById('diagnosisResults');
+            
+            // Simulated predictions
+            const predictions = [
+                { condition: 'Normal Sinus Rhythm', confidence: 0.92 },
+                { condition: 'Atrial Fibrillation', confidence: 0.05 },
+                { condition: 'Left Bundle Branch Block', confidence: 0.03 }
+            ];
+            
+            let html = `
+                <p style="margin-bottom: 15px; color: var(--text-light);">The AI has analyzed the ECG and detected the following conditions:</p>
+            `;
+            
+            predictions.forEach(pred => {
+                const confidencePercent = Math.round(pred.confidence * 100);
+                html += `
+                    <div class="diagnosis-item">
+                        <span class="diagnosis-condition">${pred.condition}</span>
+                        <span class="diagnosis-confidence">${confidencePercent}%</span>
+                    </div>
+                    <div class="confidence-meter">
+                        <div class="confidence-level" style="width: ${confidencePercent}%"></div>
+                    </div>
+                `;
+            });
+            
+            // Add interpretation note
+            html += `
+                <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid rgba(0, 209, 209, 0.2);">
+                    <p style="font-size: 13px; color: var(--text-light);">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--warning)" style="vertical-align: middle; margin-right: 5px;">
+                            <path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16"/>
+                        </svg>
+                        This analysis is for informational purposes only. Consult a cardiologist for medical diagnosis.
+                    </p>
+                </div>
+            `;
+            
+            resultsContainer.innerHTML = html;
+            
+            // Animate confidence meters
+            setTimeout(() => {
+                document.querySelectorAll('.confidence-level').forEach(el => {
+                    el.style.width = el.style.width;
+                });
+            }, 100);
+        }
+
+        // Load TensorFlow.js model (placeholder)
+        async function loadModel() {
+            try {
+                // In a real implementation, you would load your actual model here
+                // model = await tf.loadLayersModel('path/to/model.json');
+                console.log('Model loaded successfully');
+            } catch (error) {
+                console.error('Failed to load model:', error);
+                showError('Failed to load AI model. Visualization only mode.');
+            }
+        }
+
+        // Error handling
+        function showError(message) {
+            const errorElement = document.createElement('div');
+            errorElement.className = 'error-message fade-in';
+            errorElement.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--accent)" style="vertical-align: middle; margin-right: 10px;">
+                    <path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                </svg>
+                ${message}
+            `;
+            
+            const container = document.querySelector('.upload-section');
+            container.insertBefore(errorElement, container.firstChild);
+            
+            setTimeout(() => {
+                errorElement.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
